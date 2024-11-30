@@ -330,5 +330,172 @@ if __name__=="__main__":
     rospy.spin()
 
 ###############################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+SECOND CODE
+
+
+
+import rospy
+import RPi.GPIO as GPIO
+import threading
+from std_msgs.msg import Int32
+
+class EncoderPublisher:
+    def __init__(self):
+        rospy.init_node('encoder_publisher_node', anonymous=True)
+        
+        self.encoder_pin_left = 6  # Pin del encoder izquierdo
+        self.encoder_pin_right = 5  # Pin del encoder derecho
+        
+        self.total_pulses_left = 0
+        self.total_pulses_right = 0
+        
+        self.lock = threading.Lock()  # Candado para proteger el acceso a las variables compartidas
+        
+        self.left_encoder_publisher = rospy.Publisher('encoder_left', Int32, queue_size=10)
+        self.right_encoder_publisher = rospy.Publisher('encoder_right', Int32, queue_size=10)
+        
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(self.encoder_pin_left, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.setup(self.encoder_pin_right, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        
+        # Configuración de interrupciones con debouncing
+        GPIO.add_event_detect(self.encoder_pin_left, GPIO.RISING, callback=self.encoder_callback_left, bouncetime=10)
+        GPIO.add_event_detect(self.encoder_pin_right, GPIO.RISING, callback=self.encoder_callback_right, bouncetime=10)
+        
+        # Usar un temporizador de ROS para publicar cada 0.1 segundos (10 Hz)
+        rospy.Timer(rospy.Duration(0.1), self.publish_encoder_data)
+    
+    def encoder_callback_left(self, channel):
+        try:
+            with self.lock:  # Protege el acceso con el candado
+                self.total_pulses_left += 1
+        except Exception as e:
+            rospy.logerr(f"Error en el callback del encoder izquierdo: {e}")
+
+    def encoder_callback_right(self, channel):
+        try:
+            with self.lock:  # Protege el acceso con el candado
+                self.total_pulses_right += 1
+        except Exception as e:
+            rospy.logerr(f"Error en el callback del encoder derecho: {e}")
+    
+    def publish_encoder_data(self, event):
+        try:
+            self.left_encoder_publisher.publish(self.total_pulses_left)
+            self.right_encoder_publisher.publish(self.total_pulses_right)
+        except Exception as e:
+            rospy.logerr(f"Error al publicar los datos del encoder: {e}")
+
+if __name__ == '__main__':
+    try:
+        encoder_publisher = EncoderPublisher()
+        rospy.spin()
+    except rospy.ROSInterruptException:
+        pass
+    finally:
+        GPIO.cleanup()
+
+
+
+
+
+
+THIRD CODE
+
+
+
+import rospy
+from nav_msgs.msg import Odometry
+from geometry_msgs.msg import Pose, Twist
+from std_msgs.msg import Int32
+
+class DeadReckoningOdometry:
+    def __init__(self):
+        rospy.init_node('dead_reckoning_odometry', anonymous=True)
+        
+        self.left_encoder_data = 0
+        self.right_encoder_data = 0
+        
+        # Subscripción a los datos de los encoders
+        rospy.Subscriber('encoder_left', Int32, self.encoder_left_callback)
+        rospy.Subscriber('encoder_right', Int32, self.encoder_right_callback)
+        
+        # Publicación de odometría
+        self.odom_pub = rospy.Publisher('odom', Odometry, queue_size=10)
+        
+        # Inicialización de las variables de odometría
+        self.x = 0.0
+        self.y = 0.0
+        self.theta = 0.0
+        
+        # Parámetros de los encoders y ruedas
+        self.wheel_base = 0.2  # Distancia entre las ruedas (en metros)
+        self.wheel_diameter = 0.05  # Diámetro de las ruedas (en metros)
+        self.pulses_per_revolution = 20  # Pulsos por revolución del encoder
+        
+        # Tasa de publicación de la odometría (5 Hz)
+        self.rate = rospy.Rate(5)  # Publicar a 5 Hz
+        
+    def encoder_left_callback(self, data):
+        self.left_encoder_data = data.data
+    
+    def encoder_right_callback(self, data):
+        self.right_encoder_data = data.data
+    
+    def compute_odometry(self):
+        # Calcular la distancia recorrida por cada rueda
+        left_distance = (self.left_encoder_data / self.pulses_per_revolution) * (3.14159 * self.wheel_diameter)
+        right_distance = (self.right_encoder_data / self.pulses_per_revolution) * (3.14159 * self.wheel_diameter)
+        
+        # Calcular la distancia total recorrida
+        distance = (left_distance + right_distance) / 2.0
+        
+        # Calcular el cambio en la orientación (suponiendo que las ruedas están alineadas)
+        delta_theta = (right_distance - left_distance) / self.wheel_base
+        
+        # Actualizar las posiciones
+        self.theta += delta_theta
+        self.x += distance * rospy.cos(self.theta)
+        self.y += distance * rospy.sin(self.theta)
+        
+        # Crear el mensaje de odometría
+        odom = Odometry()
+        odom.header.stamp = rospy.Time.now()
+        odom.header.frame_id = 'odom'
+        
+        # Establecer la posición
+        odom.pose.pose = Pose()
+        odom.pose.pose.position.x = self.x
+        odom.pose.pose.position.y = self.y
+        odom.pose.pose.orientation.z = self.theta
+        
+        # Publicar odometría
+        self.odom_pub.publish(odom)
+    
+    def run(self):
+        while not rospy.is_shutdown():
+            self.compute_odometry()
+            self.rate.sleep()
+
+if __name__ == '__main__':
+    try:
+        odometry_node = DeadReckoningOdometry()
+        odometry_node.run()
+    except rospy.ROSInterruptException:
+        pass
+
 # END: run the code  
 ###############################################################################
