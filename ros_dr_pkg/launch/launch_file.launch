@@ -1,0 +1,23 @@
+<launch>
+    <!-- Argument for model -->
+    <arg name="model" />
+
+    <!-- Enable GUI for visualization -->
+    <param name="use_gui" value="yes"/>
+
+    <!-- Load robot description -->
+    <param name="robot_description" command="$(find xacro)/xacro --inorder $(find ros_dr_pkg)/urdf/robot_model.xacro" />
+
+    <!-- Robot State Publisher -->
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+
+    <!-- Launch RViz with preconfigured setup -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find ros_dr_pkg)/urdf/config.rviz" required="true" />
+
+    <!-- Node for GPIO-based motor and encoder control -->
+    <node pkg="test_ros" type="publisher_node.py" name="publisher_node" output="screen" />
+
+    <!-- Node for processing encoder data and publishing odometry -->
+    <node pkg="ros_dr_pkg" type="subscriberArduino.py" name="odometry" output="screen" />
+</launch>
+
