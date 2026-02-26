@@ -7,34 +7,27 @@ import threading
 
 class MotorEncoderController:
     def __init__(self):
-        # ROS node initialization
+        
         rospy.init_node("motor_encoder_controller", anonymous=True)
         rospy.loginfo("Motor Encoder Controller Node Initialized")
 
-        # GPIO setup
         GPIO.setmode(GPIO.BOARD)  # Use physical pin numbering
 
-        # Encoder pins (GPIO pins for encoders)
         self.encoder_pin_left = 7  # Pin 7 (GPIO 4)
         self.encoder_pin_right = 11  # Pin 11 (GPIO 17)
 
-        # Encoder pulse counts
         self.total_pulses_left = 0
         self.total_pulses_right = 0
 
-        # GPIO setup for encoders
         GPIO.setup(self.encoder_pin_left, GPIO.IN)
         GPIO.setup(self.encoder_pin_right, GPIO.IN)
 
-        # Attach interrupt handlers for encoder pins
         GPIO.add_event_detect(self.encoder_pin_left, GPIO.RISING, callback=self.encoder_callback_left)
         GPIO.add_event_detect(self.encoder_pin_right, GPIO.RISING, callback=self.encoder_callback_right)
 
-        # ROS publishers
         self.left_encoder_publisher = rospy.Publisher("left_encoder_pulses", Int32, queue_size=10)
         self.right_encoder_publisher = rospy.Publisher("right_encoder_pulses", Int32, queue_size=10)
 
-        # Thread for publishing encoder data
         self.encoder_thread = threading.Thread(target=self.publish_encoder_data)
         self.encoder_thread.daemon = True
         self.encoder_thread.start()
