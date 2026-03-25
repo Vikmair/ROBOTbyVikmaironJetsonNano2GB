@@ -13,11 +13,11 @@ from mpu_6050_driver.registers import (
 class ComplementaryFilter:
     def __init__(self, alpha=1):
         self.alpha = alpha
-        self.angle_z = 0.0  # Solo guardamos el ángulo Yaw (eje Z)
+        self.angle_z = 0.0  
 
     def update(self, accel_angles, gyro_rates, dt):
-        # Solo actualizamos el ángulo en el eje Z (Yaw)
-        self.angle_z += gyro_rates[2] * dt  # Solo usaremos el giro en Z
+        
+        self.angle_z += gyro_rates[2] * dt  
         return self.angle_z
 
 ADDR = None
@@ -60,7 +60,7 @@ def read_word_2c(adr):
 def publish_temp(timer_event):
     temp_msg = Temperature()
     temp_msg.header.frame_id = IMU_FRAME
-    temp_msg.temperature = read_word_2c(TEMP_H) / 340.0 + 36.53  # Calculando la temperatura en °C
+    temp_msg.temperature = read_word_2c(TEMP_H) / 340.0 + 36.53  
     temp_msg.header.stamp = rospy.Time.now()
     temp_pub.publish(temp_msg)
 
@@ -84,8 +84,8 @@ def publish_imu(timer_event):
 
     
     yaw = complementary_filter.update(
-        (0, 0),  # No usamos los ángulos de acelerómetro para X y Y
-        (gyro_x, gyro_y, gyro_z),  # Usamos el giro solo en Z
+        (0, 0),  
+        (gyro_x, gyro_y, gyro_z),  
         dt
     )
     
@@ -116,13 +116,13 @@ if __name__ == '__main__':
 
     IMU_FRAME = rospy.get_param('~imu_frame', 'imu_link')
 
-    bus.write_byte_data(ADDR, PWR_MGMT_1, 0)  # Despertamos el MPU-6050
-    calibrate_gyro()  # Realizamos la calibración del giroscopio
+    bus.write_byte_data(ADDR, PWR_MGMT_1, 0)  
+    calibrate_gyro()  
 
     temp_pub = rospy.Publisher('temperature', Temperature, queue_size=10)
     imu_pub = rospy.Publisher('imu/data', Imu, queue_size=10)
     
-    last_time = rospy.Time.now().to_sec()  # Inicialización después de init_node
-    imu_timer = rospy.Timer(rospy.Duration(0.02), publish_imu)  # Publicar IMU cada 20ms
-    temp_timer = rospy.Timer(rospy.Duration(10), publish_temp)  # Publicar temperatura cada 10s
+    last_time = rospy.Time.now().to_sec()  
+    imu_timer = rospy.Timer(rospy.Duration(0.02), publish_imu)  
+    temp_timer = rospy.Timer(rospy.Duration(10), publish_temp)  
     rospy.spin()
