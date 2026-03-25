@@ -10,7 +10,6 @@ from mpu_6050_driver.registers import (
     TEMP_H, GYRO_XOUT_H, GYRO_YOUT_H, GYRO_ZOUT_H
 )
 
-# Filtro Complementario solo para el eje Z (Yaw)
 class ComplementaryFilter:
     def __init__(self, alpha=1):
         self.alpha = alpha
@@ -27,14 +26,14 @@ IMU_FRAME = None
 complementary_filter = ComplementaryFilter()
 last_time = None
 
-# Calibración de Giroscopio
+
 gyrXoffs = 0.0
 gyrYoffs = 0.0
 gyrZoffs = 0.0
 
 def calibrate_gyro():
     global gyrXoffs, gyrYoffs, gyrZoffs
-    # Inicia la calibración del giroscopio para eliminar el offset
+    
     num_samples = 500
     x_sum, y_sum, z_sum = 0, 0, 0
     for _ in range(num_samples):
@@ -78,12 +77,12 @@ def publish_imu(timer_event):
     gyro_y = (read_word_2c(GYRO_YOUT_H) - gyrYoffs) / 131.0
     gyro_z = (read_word_2c(GYRO_ZOUT_H) - gyrZoffs) / 131.0
 
-    # Solo calculamos el ángulo Yaw (eje Z)
+    
     current_time = rospy.Time.now().to_sec()
     dt = current_time - last_time
     last_time = current_time
 
-    # Actualizamos solo el ángulo en Z (Yaw)
+    
     yaw = complementary_filter.update(
         (0, 0),  # No usamos los ángulos de acelerómetro para X y Y
         (gyro_x, gyro_y, gyro_z),  # Usamos el giro solo en Z
@@ -92,7 +91,7 @@ def publish_imu(timer_event):
     
     
 
-    # Usamos el ángulo Yaw para generar el cuaternión
+    
     orientation = quaternion_from_euler(0, 0, np.radians(yaw))
     imu_msg.orientation.x, imu_msg.orientation.y, imu_msg.orientation.z, imu_msg.orientation.w = orientation
 
